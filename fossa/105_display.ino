@@ -84,7 +84,8 @@ void qrShowCodeLNURL(String message) {
   printCenteredTwoLines(message, 2, tft.height() - reservedBottom + 4);
   Serial.println("Printing if printer exists");
   printReceipt();
-  delay(2000);
+  // Minimum lock-out before tap is accepted (prevents accidental dismiss)
+  delay(5000);
   waitForTap = true;
   while (waitForTap) {
     BTNA.read();

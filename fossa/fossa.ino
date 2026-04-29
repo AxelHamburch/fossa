@@ -80,7 +80,12 @@ SoftwareSerial printerSerial(PRINTER_RX, PRINTER_TX);
 
 // Coin pulse counter (interrupt-driven, pulled-to-GND pulses on COIN_TX)
 // 2 pulses=0.05 EUR  3=0.10  4=0.20  5=0.50  6=1.00  7=2.00
-#define COIN_DEBOUNCE_MS 20   // ignore edges closer than this apart
+#ifndef COIN_DEBOUNCE_MS
+  #define COIN_DEBOUNCE_MS 50   // min ms between two valid pulses
+#endif
+#ifndef COIN_EVAL_MS
+  #define COIN_EVAL_MS 400      // ms of silence before evaluating pulse count
+#endif
 volatile int       coinPulseCount    = 0;
 volatile uint32_t  lastCoinPulseMs   = 0;
 void IRAM_ATTR coinPulseISR() {
@@ -179,7 +184,7 @@ void moneyTimerFun() {
       homeScreenNumColorCount = 0;
     }
     // Only redraw home screen when no coin pulses are in progress
-    bool coinQuiet = coinPulseCount == 0 && ((uint32_t)millis() - lastCoinPulseMs) > 200;
+    bool coinQuiet = coinPulseCount == 0 && ((uint32_t)millis() - lastCoinPulseMs) > COIN_EVAL_MS;
     if (total == 0 && coinQuiet) {
       waitForTap = true;
       feedmefiat();
@@ -195,8 +200,8 @@ void moneyTimerFun() {
         }
       }
     }
-    // Coin pulse evaluation: wait 200 ms after last pulse, then map count→value
-    if (coinPulseCount > 0 && ((uint32_t)millis() - lastCoinPulseMs) > 200) {
+    // Coin pulse evaluation: wait COIN_EVAL_MS after last pulse, then map count→value
+    if (coinPulseCount > 0 && ((uint32_t)millis() - lastCoinPulseMs) > COIN_EVAL_MS) {
       int pulses = coinPulseCount;
       coinPulseCount = 0;
       int idx = pulses - 2;  // 2 pulses→index 0 (0.05 EUR) … 7 pulses→index 5 (2 EUR)
