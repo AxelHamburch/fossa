@@ -1,34 +1,40 @@
 
 
 void printMessage(String text1, String text2, String text3, int ftcolor, int bgcolor) {
+  int w = tft.width();
+  int h = tft.height();
   tft.fillScreen(bgcolor);
   tft.setTextColor(ftcolor, bgcolor);
   tft.setTextSize(4);
-  tft.setCursor((480 - textWidth(text1, 4)) / 2, 40);
+  tft.setCursor((w - textWidth(text1, 4)) / 2, h / 8);
   tft.println(text1);
-  tft.setCursor((480 - textWidth(text2, 4)) / 2, 120);
+  tft.setCursor((w - textWidth(text2, 4)) / 2, h * 3 / 8);
   tft.println(text2);
   tft.setTextSize(3);
-  tft.setCursor((480 - textWidth(text3, 3)) / 2, 200);
+  tft.setCursor((w - textWidth(text3, 3)) / 2, h * 5 / 8);
   tft.println(text3);
 }
 void feedmefiat() {
+  int w = tft.width();
+  int h = tft.height();
   tft.setTextColor(TFT_WHITE);
-  tft.setCursor((480 - textWidth(fossaT, 2)) / 2, 40);
+  tft.setCursor((w - textWidth(fossaT, 2)) / 2, h / 8);
   tft.setTextSize(2);
   tft.println(fossaT);
-  tft.setCursor((480 - textWidth(feedT + " " + String(charge) + chargeT, 2)) / 2, 280);
+  tft.setCursor((w - textWidth(feedT + " " + String(charge) + chargeT, 2)) / 2, h * 7 / 8);
   tft.setTextSize(2);
   tft.println(feedT + " " + String(charge) + chargeT);
 }
 void feedmefiatloop() {
+  int w = tft.width();
+  int h = tft.height();
   tft.setTextColor(homeScreenColors[homeScreenNumColorCount]);
   tft.setTextSize(8);
-  tft.setCursor((480 - textWidth(satsT, 8)) / 2, 80);
+  tft.setCursor((w - textWidth(satsT, 8)) / 2, h / 4);
   tft.println(satsT);
-  tft.setCursor((480 - textWidth(forT, 8)) / 2, 140);
+  tft.setCursor((w - textWidth(forT, 8)) / 2, h * 7 / 16);
   tft.println(forT);
-  tft.setCursor((480 - textWidth(fiatT, 8)) / 2, 200);
+  tft.setCursor((w - textWidth(fiatT, 8)) / 2, h * 5 / 8);
   tft.println(fiatT);
   delay(100);
 }
@@ -40,17 +46,21 @@ void qrShowCodeLNURL(String message) {
   uint8_t qrcodeData[qrcode_getBufferSize(20)];
   qrcode_initText(&qrcoded, qrcodeData, 11, 0, qrDataChar);
 
+  int qrPx  = qrcoded.size * 4;
+  int qrX   = (tft.width()  - qrPx) / 2;
+  int qrY   = (tft.height() - qrPx - 30) / 2;
+
   for (uint8_t y = 0; y < qrcoded.size; y++) {
     for (uint8_t x = 0; x < qrcoded.size; x++) {
       if (qrcode_getModule(&qrcoded, x, y)) {
-        tft.fillRect(120 + 4 * x, 20 + 4 * y, 4, 4, TFT_BLACK);
+        tft.fillRect(qrX + 4 * x, qrY + 4 * y, 4, 4, TFT_BLACK);
       } else {
-        tft.fillRect(120 + 4 * x, 20 + 4 * y, 4, 4, TFT_WHITE);
+        tft.fillRect(qrX + 4 * x, qrY + 4 * y, 4, 4, TFT_WHITE);
       }
     }
   }
 
-  tft.setCursor(40, 290);
+  tft.setCursor((tft.width() - textWidth(message, 2)) / 2, tft.height() - 30);
   tft.setTextSize(2);
   tft.setTextColor(TFT_BLACK, TFT_WHITE);
   tft.println(message);

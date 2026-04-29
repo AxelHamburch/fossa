@@ -89,7 +89,10 @@ void setup() {
   BTNA.begin();
   FlashFS.begin(FORMAT_ON_FAIL);
   tft.init();
-  tft.setRotation(1);
+#ifndef DISPLAY_ROTATION
+  #define DISPLAY_ROTATION 1
+#endif
+  tft.setRotation(DISPLAY_ROTATION);
   tft.invertDisplay(false);
   printMessage("", "Loading..", "", TFT_WHITE, TFT_BLACK);
   printMessage("", "Loading..", "", TFT_BLACK, TFT_WHITE);
