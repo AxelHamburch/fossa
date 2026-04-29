@@ -1,3 +1,12 @@
+
+# Special version for coinATM
+
+It has a few changes, such as a vertical screen and a pulse-based coin acceptor.
+
+---
+---
+---
+
 <img src="img/main.jpg">
 
 The low-cost Bitcoin Lightning ATM built with simple parts like an ESP32 and coin/bill acceptors. It lets anyone turn fiat into Bitcoin and comes with clear instructions so hobbyists and developers can easily build their own.
