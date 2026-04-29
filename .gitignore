@@ -4,3 +4,8 @@ build
 .venv
 .cache
 fossa/hardcoded_user_config.h
+
+# PlatformIO
+.pio/
+.pioenvs/
+.piolibdeps/
