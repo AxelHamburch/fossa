@@ -76,8 +76,20 @@ int homeScreenNumColorCount = 0;
 String usbT, tapScreenT, scanMeT, totalT, fossaT, satsT, forT, fiatT, feedT, chargeT, printingT, waitT, workingT, thisVoucherT, ofBitcoinT, thankYouT, scanMeClaimT, tooMuchFiatT, contactOwnerT;
 
 HardwareSerial SerialPort1(1);
-HardwareSerial SerialPort2(2);
 SoftwareSerial printerSerial(PRINTER_RX, PRINTER_TX);
+
+// Coin pulse counter (interrupt-driven, pulled-to-GND pulses on COIN_TX)
+// 2 pulses=0.05 EUR  3=0.10  4=0.20  5=0.50  6=1.00  7=2.00
+#define COIN_DEBOUNCE_MS 20   // ignore edges closer than this apart
+volatile int       coinPulseCount    = 0;
+volatile uint32_t  lastCoinPulseMs   = 0;
+void IRAM_ATTR coinPulseISR() {
+  uint32_t now = (uint32_t)millis();
+  if (now - lastCoinPulseMs >= COIN_DEBOUNCE_MS) {
+    coinPulseCount++;
+    lastCoinPulseMs = now;
+  }
+}
 Adafruit_Thermal printer(&printerSerial);
 TFT_eSPI tft = TFT_eSPI(320, 480);
 Button BTNA(BTN1);
@@ -117,11 +129,15 @@ void setup() {
   }
   splitSettings(deviceString);
 
-  // initialize bill and coin acceptor
+  // initialize bill acceptor
   SerialPort1.begin(300, SERIAL_8N2, BILL_TX, BILL_RX);
-  SerialPort2.begin(4800, SERIAL_8N1, COIN_TX);
   printerSerial.begin(9600);
+  // coin pulse input: mechanism pulls COIN_TX to GND for each pulse
+  pinMode(COIN_TX, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(COIN_TX), coinPulseISR, FALLING);
+#if !COIN_INHIBIT_BYPASS
   pinMode(COIN_INHIBIT, OUTPUT);
+#endif
 }
 
 void loop() {
@@ -132,7 +148,9 @@ void loop() {
     // initialize printer
 
     SerialPort1.write(184);
+#if !COIN_INHIBIT_BYPASS
     digitalWrite(COIN_INHIBIT, HIGH);
+#endif
     tft.fillScreen(TFT_BLACK);
     BTNA.read();
     if (SerialPort1.available()) {
@@ -160,7 +178,9 @@ void moneyTimerFun() {
     if (homeScreenNumColorCount == homeScreenNumColors) {
       homeScreenNumColorCount = 0;
     }
-    if (total == 0) {
+    // Only redraw home screen when no coin pulses are in progress
+    bool coinQuiet = coinPulseCount == 0 && ((uint32_t)millis() - lastCoinPulseMs) > 200;
+    if (total == 0 && coinQuiet) {
       waitForTap = true;
       feedmefiat();
       feedmefiatloop();
@@ -175,15 +195,21 @@ void moneyTimerFun() {
         }
       }
     }
-    if (SerialPort2.available()) {
-      int x = SerialPort2.read();
-        for (int i = 0; i < coinAmountSize; i++) {
-          if ((i + 1) == x) {
-            coins = coins + coinAmountFloat[i];
-            total = (coins + bills);
-            printMessage(coinAmountFloat[i] + currencyATM, totalT + String(total) + currencyATM, tapScreenT, TFT_WHITE, TFT_BLACK);
-          }
-        }
+    // Coin pulse evaluation: wait 200 ms after last pulse, then map count→value
+    if (coinPulseCount > 0 && ((uint32_t)millis() - lastCoinPulseMs) > 200) {
+      int pulses = coinPulseCount;
+      coinPulseCount = 0;
+      int idx = pulses - 2;  // 2 pulses→index 0 (0.05 EUR) … 7 pulses→index 5 (2 EUR)
+      if (idx >= 0 && idx < (int)coinAmountSize) {
+        coins = coins + coinAmountFloat[idx];
+        total = (coins + bills);
+        printMessage(String(coinAmountFloat[idx]) + currencyATM, totalT + String(total) + currencyATM, tapScreenT, TFT_WHITE, TFT_BLACK);
+      } else {
+        // Invalid pulse count (noise) — refresh the cooldown timer so the
+        // home screen is not immediately redrawn while the coin is still dropping
+        Serial.println("Unknown coin pulse count: " + String(pulses));
+        lastCoinPulseMs = (uint32_t)millis();
+      }
     }
     BTNA.read();
     if (BTNA.wasReleased() || total > maxAmount) {
@@ -195,5 +221,7 @@ void moneyTimerFun() {
 
   // Turn off machines
   SerialPort1.write(185);
+#if !COIN_INHIBIT_BYPASS
   digitalWrite(COIN_INHIBIT, LOW);
+#endif
 }
