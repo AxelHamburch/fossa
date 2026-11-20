@@ -1,9 +1,14 @@
 String failedT, unableT, maxaT, willT, loadT, maxrT, printY, langT;
 
-void executeConfig() {
+#ifndef FIRMWARE_VERSION
+#define FIRMWARE_VERSION "dev"
+#endif
+
+// allowButton=false: only leave the config mode via /config-done (used when no valid config exists)
+void executeConfig(bool allowButton) {
   while (true) {
     BTNA.read();
-    if (BTNA.wasReleased()) {
+    if (allowButton && BTNA.wasReleased()) {
       readFiles();
       return;
     }
@@ -15,7 +20,9 @@ void executeConfig() {
     String commandName = kv.key;
     if (commandName == "/config-done") {
       Serial.println("/config-done");
-      return;
+      Serial.flush();
+      delay(300);
+      ESP.restart(); // start cleanly with the freshly written config
     }
     executeCommand(commandName, kv.value);
   }
@@ -27,6 +34,10 @@ void executeCommand(String commandName, String commandData) {
   String path = kv.key;
   String data = kv.value;
 
+  if (commandName == "/ping") {
+    Serial.println("/pong " + String(FIRMWARE_VERSION));
+    return;
+  }
   if (commandName == "/file-remove") {
     return removeFile(path);
   }
@@ -114,13 +125,14 @@ void readFiles() {
     Serial.println("Device string: " + deviceString);
   }
   else{
-    Serial.println("LNURLdevice config not found, endless loop");
+    Serial.println("LNURLdevice config not found, waiting for config");
+    paramFile.close();
     printMessage("", failedT, unableT, TFT_WHITE, TFT_BLACK);
-      while (true) {
-    }
+    executeConfig(false); // restarts the device after /config-done
+    return;
   }
 
-  String maxAmountConfig = getJsonValue(doc, "config_max_amount, using default");
+  String maxAmountConfig = getJsonValue(doc, "config_max_amount");
   if (maxAmountConfig != "") {
     maxAmount = maxAmountConfig.toInt();
     Serial.println("maxAmount: " + maxAmountConfig);
@@ -156,13 +168,15 @@ void readFiles() {
     tft.fillScreen(TFT_BLACK);
   }
 
-  billAmounts = getJsonValue(doc, "config_bill_ints");
+  String billConfig = getJsonValue(doc, "config_bill_ints");
+  if (billConfig != "") billAmounts = billConfig; // else keep default from hardcoded_user_config.h
   convertToFloatArray(billAmounts.c_str(), billAmountFloat);
   Serial.println(billAmountFloat[0]);
 
-  coinAmounts = getJsonValue(doc, "config_coin_floats");
+  String coinConfig = getJsonValue(doc, "config_coin_floats");
+  if (coinConfig != "") coinAmounts = coinConfig; // else keep default from hardcoded_user_config.h
   convertToFloatArray(coinAmounts.c_str(), coinAmountFloat);
-  Serial.println(billAmountFloat[0]);
+  Serial.println(coinAmountFloat[0]);
 
   String langConfig = getJsonValue(doc, "config_lang");
   if (langConfig != "") {

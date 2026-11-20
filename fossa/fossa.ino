@@ -30,6 +30,18 @@
 // default settings
 #include "hardcoded_user_config.h"
 
+// Web installer build (-DINSTALLER_BUILD): settings are written via USB serial, never hardcoded
+#ifdef INSTALLER_BUILD
+#undef HARDCODED
+#define HARDCODED false
+#endif
+
+#ifndef FIRMWARE_VERSION
+#define FIRMWARE_VERSION "dev"
+#endif
+// Time window after boot in which a screen tap (or a serial /config) starts the config mode
+#define CONFIG_TAP_WINDOW_MS 6000
+
 bool hardcoded = HARDCODED; // set to true if you want to use the above hardcoded settings
 bool printerBool = false;
 float billAmountFloat[10];
@@ -101,8 +113,10 @@ Button BTNA(BTN1);
 
 void setup() {
   translateAll(language);
+  Serial.setRxBufferSize(2048); // config lines can be several hundred bytes
   Serial.begin(115200);
   Serial.println(workingT);
+  Serial.println("Fossa firmware " FIRMWARE_VERSION);
   BTNA.begin();
   FlashFS.begin(FORMAT_ON_FAIL);
   tft.init();
@@ -114,18 +128,38 @@ void setup() {
   printMessage("", "Loading..", "", TFT_WHITE, TFT_BLACK);
   printMessage("", "Loading..", "", TFT_BLACK, TFT_WHITE);
 
-  // wait few secods for tap to start config mode
-  while (waitForTap && total < 100) {
+  // No stored config and not hardcoded -> stay in config mode until /config-done (web installer)
+  if (!hardcoded && !FlashFS.exists(PARAM_FILE)) {
+    Serial.println("/config-mode no config found");
+    printMessage(usbT, "", "", TFT_WHITE, TFT_BLACK);
+    executeConfig(false); // restarts the device after /config-done
+  }
+
+  // wait a few seconds for a tap (or a serial /config) to start config mode
+  unsigned long tapStart = millis();
+  while (waitForTap && millis() - tapStart < CONFIG_TAP_WINDOW_MS) {
     BTNA.read();
     if (BTNA.wasReleased()) {
+      Serial.println("/config-mode tap");
       printMessage(usbT, "", tapScreenT, TFT_WHITE, TFT_BLACK);
-      executeConfig();
+      executeConfig(true);
       waitForTap = false;
     }
+    // lets the web installer enter config mode without touching the screen
+    if (Serial.available() > 0) {
+      String cmd = Serial.readStringUntil('\n');
+      cmd.trim();
+      if (cmd == "/ping") Serial.println("/pong " FIRMWARE_VERSION);
+      if (cmd == "/config") {
+        Serial.println("/config-mode serial");
+        printMessage(usbT, "", "", TFT_WHITE, TFT_BLACK);
+        executeConfig(false); // restarts the device after /config-done
+      }
+    }
     delay(20);
-    total++;
   }
-  
+  total = 0;
+
   if(hardcoded == false){
     readFiles();
   }
