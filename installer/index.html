@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FOSSA ATM Web Installer</title>
+  <meta name="description" content="Flash and configure your FOSSA ATM from the browser" />
+  <link rel="stylesheet" href="./assets/style.css" />
+  <script src="./assets/serial.js"></script>
+  <script type="module" src="https://unpkg.com/esp-web-tools@9/dist/web/install-button.js?module"></script>
+</head>
+<body>
+<div class="wrapper">
+
+  <noscript><p>JavaScript is required for this page.</p></noscript>
+
+  <h1>FOSSA ⚡ WEB INSTALLER</h1>
+  <p class="sub">Flash the firmware and configure your FOSSA ATM (ESP32, WT32-SC01 display) from the browser.
+    Use Google Chrome or Microsoft Edge on a desktop computer.</p>
+
+  <!-- ───────────── 1. Flash ───────────── -->
+  <section id="flash">
+    <h2>1 – Flash firmware</h2>
+    <ul>
+      <li>Connect the FOSSA to your computer via USB.</li>
+      <li>Leave the latest firmware version selected.</li>
+      <li>Press <b>Flash</b> and follow the instructions. Choose <i>Erase device</i> for a fresh install.</li>
+    </ul>
+    <div class="row">
+      <select id="firmware-version">
+        <option value="./firmware/v976739/manifest.json">v976739 (Latest – Web installer, configurable via USB)</option>
+      </select>
+      <esp-web-install-button id="flash-button" manifest="./firmware/v976739/manifest.json?_t=0">
+        <button slot="activate" class="primary">🔥 Flash</button>
+        <span slot="unsupported">Your browser does not support installing on ESP devices. Use Google Chrome or Microsoft Edge.</span>
+        <span slot="not-allowed">Not allowed on HTTP – open this page via HTTPS.</span>
+      </esp-web-install-button>
+    </div>
+    <p class="hint">Without <i>Erase device</i> the stored configuration is kept when you update the firmware.</p>
+  </section>
+
+  <!-- ───────────── 2. Connect ───────────── -->
+  <section id="connect">
+    <h2>2 – Connect</h2>
+    <ul>
+      <li>Close other programs that use the USB port (serial monitor, flash dialog).</li>
+      <li>Press <b>Connect</b> and select the serial port of your FOSSA.</li>
+      <li>The page puts the device into <b>config mode</b> automatically. A device without stored settings
+        (fresh install) starts in config mode by itself and shows <i>USB config mode</i>.</li>
+      <li>If config mode does not start, press <b>Restart device</b>. As a fallback, tap the screen within
+        6 seconds after power-up.</li>
+    </ul>
+    <div class="row">
+      <button id="connect-button">🔌 Connect</button>
+      <button id="restart-button" disabled>🔄 Restart device</button>
+      <button id="disconnect-button" disabled>⏏ Disconnect</button>
+      <span id="connection-status" class="pill">❌ Not connected</span>
+      <span id="config-mode-status" class="pill">❌ No config mode</span>
+    </div>
+    <p class="hint" id="firmware-info"></p>
+  </section>
+
+  <!-- ───────────── 3. Configure ───────────── -->
+  <section id="configure">
+    <h2>3 – Configure</h2>
+    <p class="hint">All values are pre-filled with defaults. Only the ATM string is required.
+      <b>Read config</b> loads the values currently stored on the device.</p>
+
+    <div class="row">
+      <button id="read-button" disabled>📖 Read config</button>
+      <button id="write-button" disabled class="primary">💾 Write config</button>
+      <button id="finish-button" disabled>✅ Finish &amp; restart</button>
+    </div>
+
+    <form id="config-form" autocomplete="off" onsubmit="return false;">
+      <div class="field">
+        <label for="config_lnurl">ATM string from the Fossa extension (LNbits)</label>
+        <input type="text" id="config_lnurl" spellcheck="false"
+               placeholder="https://your-lnbits.com/fossa/api/v1/lnurl/XXXXX,XXXXXXXXXXXXXXXX,USD" />
+        <div class="error" data-error-for="config_lnurl"></div>
+        <p class="hint">Copy the complete string from the Fossa extension in LNbits: <code>URL,secret,currency</code></p>
+      </div>
+
+      <div class="grid">
+        <div class="field">
+          <label for="config_bill_ints">Bill denominations</label>
+          <input type="text" id="config_bill_ints" value="1,5,10,20,50,100" />
+          <div class="error" data-error-for="config_bill_ints"></div>
+          <p class="hint">Separated by comma, max. 10 values.</p>
+        </div>
+        <div class="field">
+          <label for="config_coin_floats">Coin values</label>
+          <input type="text" id="config_coin_floats" value="0.05,0.1,0.2,0.5,1,2" />
+          <div class="error" data-error-for="config_coin_floats"></div>
+          <p class="hint">Separated by comma, no more than 6.</p>
+        </div>
+        <div class="field">
+          <label for="config_charge">Service charge (%)</label>
+          <input type="text" id="config_charge" value="20" inputmode="numeric" />
+          <div class="error" data-error-for="config_charge"></div>
+          <p class="hint">Percentage you charge for the service, e.g. 10 for 10 %.</p>
+        </div>
+        <div class="field">
+          <label for="config_max_amount">Max amount per withdrawal</label>
+          <input type="text" id="config_max_amount" value="40" inputmode="numeric" />
+          <div class="error" data-error-for="config_max_amount"></div>
+          <p class="hint">Maximum amount allowed in one transaction.</p>
+        </div>
+        <div class="field">
+          <label for="config_max_amount_reset">Max amount before reset</label>
+          <input type="text" id="config_max_amount_reset" value="500" inputmode="numeric" />
+          <div class="error" data-error-for="config_max_amount_reset"></div>
+          <p class="hint">Withdrawals stop until the ATM is emptied and power-cycled.</p>
+        </div>
+        <div class="field">
+          <label for="config_printer">Thermal printer</label>
+          <select id="config_printer">
+            <option value="false" selected>false – no printer</option>
+            <option value="true">true – printer connected</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="config_lang">Language</label>
+          <select id="config_lang">
+            <option value="en" selected>en – English</option>
+            <option value="de">de – Deutsch</option>
+            <option value="es">es – Español</option>
+            <option value="fr">fr – Français</option>
+            <option value="it">it – Italiano</option>
+            <option value="pt">pt – Português</option>
+            <option value="pl">pl – Polski</option>
+            <option value="hu">hu – Magyar</option>
+            <option value="tr">tr – Türkçe</option>
+            <option value="ro">ro – Română</option>
+            <option value="fi">fi – Suomi</option>
+            <option value="sv">sv – Svenska</option>
+            <option value="nl">nl – Nederlands</option>
+          </select>
+        </div>
+      </div>
+    </form>
+
+    <div id="message"></div>
+    <div class="debug-console" id="console"></div>
+  </section>
+
+  <footer>
+    <p>FOSSA – Free and Open Source ATM · <a href="https://github.com/lnbits/fossa" target="_blank" rel="noopener noreferrer">github.com/lnbits/fossa</a></p>
+  </footer>
+</div>
+
+<script src="./assets/installer.js"></script>
+</body>
+</html>
